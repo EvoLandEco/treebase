@@ -16,6 +16,7 @@
 #' @param pause1 number of seconds to hesitate between requests
 #' @param pause2 number of seconds to hesitate between individual files
 #' @param attempts number of attempts to access a particular resource
+#' @param time_out seconds to wait for the query until it times out
 #' @param only_metadata option to only return metadata about matching trees
 #' which lists study.id, tree.id, kind (gene,species,barcode) type (single, consensus)
 #' number of taxa, and possible quality score.
@@ -57,6 +58,7 @@ search_treebase <- function(input, by, returns = c("tree", "matrix"),
                             exact_match = FALSE, max_trees = Inf,
                             branch_lengths = FALSE, curl = getCurlHandle(),
                             verbose = TRUE, pause1 = 0, pause2 = 0, attempts = 3,
+                            time_out = 30,
                             only_metadata = FALSE){
 
   nterms <- length(by)
@@ -164,7 +166,7 @@ search_treebase <- function(input, by, returns = c("tree", "matrix"),
     max_trees <- "last()"
 
   out <- get_nex(query, max_trees = max_trees, returns = returns, curl = curl,
-                 pause1 = pause1, pause2 = pause2, attempts = attempts,
+                 pause1 = pause1, pause2 = pause2, attempts = attempts, time_out = time_out,
                  only_metadata = only_metadata)
 
   if(schema == "tree" && only_metadata == FALSE){
@@ -203,6 +205,7 @@ drop_nontrees <- function(tr){
 #' @param pause1 number of seconds to hesitate between requests
 #' @param pause2 number of seconds to hesitate between individual files
 #' @param attempts number of attempts to access a particular resource
+#' @param time_out seconds to wait for the query until it times out
 #' @return A list object containing all the trees matching the search
 #'    (of class phylo)
 #' @import XML
@@ -214,18 +217,18 @@ drop_nontrees <- function(tr){
 get_nex <- function(query, max_trees = "last()", returns = "tree",
                     curl = getCurlHandle(), verbose = TRUE,
                     pause1 = 1, pause2 = 1, attempts = 5,
-                    only_metadata = FALSE) {
+                    time_out = 50, only_metadata = FALSE) {
   n_trees <- 0
   ## Note the need for followlocation -- the actual url just resolves to a page that forwards us on
   # Convert binary to text
   content <- getURLContent(query, .opts=curlOptions(followlocation = TRUE, 
                                                   ssl.verifypeer = FALSE),
-                         binary = TRUE, curl = curl)
+                         binary = TRUE, curl = curl, timeout = timeout)
   textContent <- rawToChar(content)
   
   # isXMLString cannot distinguish this error
   if (grepl("Java Uncaught Exception", textContent)) {
-    stop("Connection to TreeBASE server unstable, failed to retrieve data")
+    stop("Connection to TreeBASE server is unstable, failed to retrieve data")
   }
 
   xml_hits <- xmlParse(textContent)
@@ -260,7 +263,7 @@ get_nex <- function(query, max_trees = "last()", returns = "tree",
   } else {
     out <- lapply(Trees,
       try_recursive, returns=returns, curl=curl, pause1=pause1,
-      pause2=pause2, attempts=attempts)
+      pause2=pause2, attempts=attempts, time_out=time_out)
   }
     out <- lapply(1:length(out), function(i){
       out[[i]]$S.id <- Study.ids[i]
@@ -288,7 +291,7 @@ have_branchlength <- function(trees){
 
 ## an internal function which descends through the pages to get the nexus resources
 #' @importFrom httr GET content
-dig <- function(tree_url, returns="tree", curl=getCurlHandle(), pause1=0, pause2=0){
+dig <- function(tree_url, returns="tree", curl=getCurlHandle(), pause1=0, pause2=0, time_out=50){
 # Get the URL to the actual resource on that page
   #thepage <- xmlAttrs(x, "rdf:resource")
 
@@ -297,7 +300,7 @@ dig <- function(tree_url, returns="tree", curl=getCurlHandle(), pause1=0, pause2
   # Convert binary to text
   content <- getURLContent(tree_url, .opts=curlOptions(followlocation = TRUE, 
                                                     ssl.verifypeer = FALSE),
-                           binary = TRUE, curl = curl)
+                           binary = TRUE, curl = curl, timeout = timeout)
   textContent <- rawToChar(content)
   seconddoc <- xmlParse(textContent) ## This fails if we rush
 
@@ -310,7 +313,7 @@ dig <- function(tree_url, returns="tree", curl=getCurlHandle(), pause1=0, pause2
   ## being patient will let the server get the resource ready
   Sys.sleep(pause2)
   
-  raw_file <- httr::content(httr::GET(link), as="raw")
+  raw_file <- httr::content(httr::GET(link, timeout(time_out)), as="raw")
   
   # Check whether sever returns a valid nexus, or the same page as seconddoc
   if (isXMLString(rawToChar(raw_file))) {
@@ -364,11 +367,11 @@ try_thrice <- function(x,returns, curl, pause1, pause2, attempts){
 # Helper function to make a specified number of attempts to access a resource
 
 #' @keywords internal
-try_recursive <- function(x,returns, curl, pause1, pause2, attempts=3){
+try_recursive <- function(x,returns, curl, pause1, pause2, attempts=3, time_out=50){
   try <- 1
   while(try <= attempts){
     message(paste("Attempting try", try))
-    out <- try(dig(x,returns, curl, pause1, pause2))
+    out <- try(dig(x,returns, curl, pause1, pause2, time_out))
     try <- try + 1
     if(!is(out, "try-error"))
       try <- attempts+1

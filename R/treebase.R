@@ -157,6 +157,7 @@ search_treebase <- function(input, by, returns = c("tree", "matrix"),
   query <- paste("http://purl.org/phylo/treebase/phylows/", search_type,
                  search_term[1], input, format, "&recordSchema=", schema, sep="")
   ## display the constructed query to the user
+  message("Search query:")
   message(query)
 
   if(max_trees == Inf)
@@ -221,7 +222,13 @@ get_nex <- function(query, max_trees = "last()", returns = "tree",
                                                   ssl.verifypeer = FALSE),
                          binary = TRUE, curl = curl)
   textContent <- rawToChar(content)
-  #return(textContent)
+  
+  print(textContent)
+  
+  # isXMLString cannot distinguish this error
+  if (grepl("Java Uncaught Exception", textContent)) {
+    stop("Connection to TreeBASE server unstable, failed to retrieve data")
+  }
 
   xml_hits <- xmlParse(textContent)
   message("Query resolved, looking at each matching resource...")

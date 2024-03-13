@@ -223,8 +223,6 @@ get_nex <- function(query, max_trees = "last()", returns = "tree",
                          binary = TRUE, curl = curl)
   textContent <- rawToChar(content)
   
-  print(textContent)
-  
   # isXMLString cannot distinguish this error
   if (grepl("Java Uncaught Exception", textContent)) {
     stop("Connection to TreeBASE server unstable, failed to retrieve data")

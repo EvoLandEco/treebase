@@ -69,6 +69,7 @@ search_treebase <- function(input, by, returns = c("tree", "matrix"),
                        citation="dcterms.bibliographicCitation",
                        author = "dcterms.contributor",
                        subject = "dcterms.subject",
+                       title = "dcterms.title",
                        id.matrix = "tb.identifier.matrix",
                        id.matrix.tb1 = "tb.identifer.matrix.tb1",
                        ncbi = "tb.identifier.ncbi",
@@ -99,6 +100,7 @@ search_treebase <- function(input, by, returns = c("tree", "matrix"),
                        citation= "study",
                        author = "study",
                        subject = "study",
+                       title = "study",
                        id.matrix ="matrix",
                        id.matrix.tb1 = "matrix",
                        ncbi =  "taxon",
@@ -134,9 +136,9 @@ search_treebase <- function(input, by, returns = c("tree", "matrix"),
     }
   }
 
-  input <- gsub(" +", "%20\\1", input) # whitespace to html space symbol
-  input <- gsub("\"", "%22", input) # html quote code at start
-  input <- gsub("'", "%22", input) # html quote code at start
+  input <- gsub(" ", "+", input) # whitespace to +
+  input <- gsub("\"", "", input) # remove quote
+  input <- gsub("'", "", input) # remove quote
  # if(by %in% c("doi")) # list of search types that need to be quoted
 #    input <- paste("%22", input,"%22", sep="")
   if(exact_match){

@@ -309,7 +309,7 @@ dig <- function(tree_url, returns="tree", curl=getCurlHandle(), pause1=0, pause2
   
   # Check whether sever returns a valid nexus, or the same page as seconddoc
   if (isXMLString(rawToChar(raw_file))) {
-    message("This tree URL did not return a valid nexus file:")
+    message("Server did not return a valid nexus file from URL:")
     message(tree_url)
     return(NULL)
   } else {

@@ -214,8 +214,14 @@ get_nex <- function(query, max_trees = "last()", returns = "tree",
                     only_metadata = FALSE) {
   n_trees <- 0
   ## Note the need for followlocation -- the actual url just resolves to a page that forwards us on
-  page1 <- getURLContent(query, followlocation = TRUE, curl = curl)
-  xml_hits <- xmlParse(page1)
+  # Convert binary to text
+  content <- getURLContent(query, .opts=curlOptions(followlocation = TRUE, 
+                                                  ssl.verifypeer = FALSE),
+                         binary = TRUE, curl = curl)
+  textContent <- rawToChar(content)
+  #return(textContent)
+
+  xml_hits <- xmlParse(textContent)
   message("Query resolved, looking at each matching resource...")
 
   resources <- getNodeSet(xml_hits, paste0("//rdf:li[position()<= ", max_trees, "]"))
@@ -281,8 +287,12 @@ dig <- function(tree_url, returns="tree", curl=getCurlHandle(), pause1=0, pause2
 
   ## being patient will let the server get the resource ready
   Sys.sleep(pause1)
-  target <- getURLContent(tree_url, followlocation=TRUE, curl=curl)
-  seconddoc <- xmlParse(target) ## This fails if we rush
+  # Convert binary to text
+  content <- getURLContent(tree_url, .opts=curlOptions(followlocation = TRUE, 
+                                                    ssl.verifypeer = FALSE),
+                           binary = TRUE, curl = curl)
+  textContent <- rawToChar(content)
+  seconddoc <- xmlParse(textContent) ## This fails if we rush
 
   message("Looking for nexus files...")
 
@@ -290,20 +300,30 @@ dig <- function(tree_url, returns="tree", curl=getCurlHandle(), pause1=0, pause2
   link <- xpathApply(seconddoc, "//x:item[x:title='Nexus file']/x:link",
             namespaces=c(x="http://purl.org/rss/1.0/"), xmlValue)[[1]]
 
-              ## being patient will let the server get the resource ready
-              Sys.sleep(pause2)
-              f <- tempfile()
-              #download.file(link, f, method="libcurl")
-              writeBin(httr::content(httr::GET(link), as="raw"), f)
-              if(returns=="tree"){
-                nex <- read.nexus(f) ## fails if we rush
-                message("Tree read in successfully")
-              } else if (returns=="matrix"){
-                 nex <- read.nexus.data(f)
-              }
-              unlink(f)
-  nex
-
+  ## being patient will let the server get the resource ready
+  Sys.sleep(pause2)
+  
+  raw_file <- httr::content(httr::GET(link), as="raw")
+  
+  # Check whether sever returns a valid nexus, or the same page as seconddoc
+  if (isXMLString(rawToChar(raw_file))) {
+    message("This tree URL did not return a valid nexus file:")
+    message(tree_url)
+    return(NULL)
+  } else {
+    f <- tempfile()
+    nex <- NULL
+    #download.file(link, f, method="libcurl")
+    writeBin(raw_file, f)
+    if(returns=="tree"){
+      nex <- read.nexus(f) ## fails if we rush
+      message("Tree read in successfully")
+    } else if (returns=="matrix"){
+      nex <- read.nexus.data(f)
+    }
+    unlink(f)
+    return(nex)
+  }
   # One tree per seconddoc
 }
 

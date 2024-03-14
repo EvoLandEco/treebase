@@ -230,7 +230,10 @@ get_nex <- function(query, max_trees = "last()", returns = "tree",
   if (grepl("Java Uncaught Exception", textContent)) {
     stop("Connection to TreeBASE server is unstable, failed to retrieve data")
   }
-
+  if (grepl("not logged in", textContent)) {
+    stop("Server requires to login, failed to retrieve data")
+  }
+  print(textContent)
   xml_hits <- xmlParse(textContent)
   message("Query resolved, looking at each matching resource...")
 
@@ -313,12 +316,12 @@ dig <- function(tree_url, returns="tree", curl=getCurlHandle(), pause1=0, pause2
   ## being patient will let the server get the resource ready
   Sys.sleep(pause2)
   
-  raw_file <- httr::content(httr::GET(link, timeout(time_out)), as="raw")
+  raw_file <- httr::content(httr::GET(link, timeout=time_out), as="raw")
   
   # Check whether sever returns a valid nexus, or the same page as seconddoc
   if (isXMLString(rawToChar(raw_file))) {
     message("Server did not return a valid nexus file from URL:")
-    message(tree_url)
+    message(link)
     return(NULL)
   } else {
     f <- tempfile()
